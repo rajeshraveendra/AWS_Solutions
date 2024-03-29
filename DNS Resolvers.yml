@@ -1,0 +1,185 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: >
+  R53 Resolver Endpoint creation in AWS
+
+Parameters:
+
+  pDomainName:
+    Description: 'External [On-premise] domain name to resolve'
+    Type: String
+    Default: mydomain.corp
+
+  pDomainservers:
+    Type: CommaDelimitedList
+    Description: List of external [On-prem] DNS IPs seperated by "," Minimum 2 IPs should be given. Give the same value twice if only one nameserver is in place.
+    Default: "192.168.11.240, 192.168.11.240"
+
+  pSharingResoverRule:
+    Description: RAM Share Resolver Rule to SHARED Services Account
+    Type: String
+    Default: false
+    AllowedValues : [true, false]
+
+  pDestinationAccountOwner:
+    Type: String
+    Description: SharedService Owner
+    Default: ''
+
+  pVPCID:
+    Type: String
+    Description: ID of VPC where the resolver endpoints to be created.
+    Default: vpc-0582a7f7c5bef79d8
+
+  pSubnet1Name:
+    Type: String
+    Description: First private subnet name where the resolver endpoints to be created.
+    Default: subnet-01505257a125c0ac4
+
+  pSubnet2Name:
+    Type: String
+    Description: Second private subnet name where the resolver endpoints to be created.
+    Default: subnet-01505257a125c0ac4
+
+  pVPCName:
+    Type: String
+    Description: VPC name where the Outbound rule to be associated with.
+
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: 'Dns configuration:'
+      Parameters:
+      - pDomainName
+      - pDomainservers
+
+    - Label:
+        default: 'RAM Sharing Resolver Rules'
+      Parameters:
+      - pSharingResoverRule
+      - pDestinationAccountOwner
+    - Label:
+        default: 'Network details'
+      Parameters:
+      - pVPCID
+      - pSubnet1Name
+      - pSubnet2Name
+      - pVPCName
+    ParameterLabels:
+      pDomainName:
+        default: DomainName
+      pDomainservers:
+        default: DNS Server Ips
+      pSharingResoverRule:
+        default: Share the Outbound Forward rule?
+      pDestinationAccountOwner:
+        default: Destination AWS Acccount
+      pSubnet1Name:
+        default: First Private Subnet ID
+      pSubnet2Name:
+        default: Second Private Subnet ID
+      pVPCID:
+        default: VPC ID
+      pVPCName:
+        default: VPC to be associated with Outbound Forward rule
+
+Conditions:
+  DoSharingResoverRules: !Equals [ !Ref pSharingResoverRule, true ]
+
+
+Resources:
+  EndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for R53 Resolver Endpoints
+      GroupName: Route53_Inbound_Outbound_Resolver_SG
+      VpcId: !Ref pVPCID
+      SecurityGroupIngress:
+        - IpProtocol: udp
+          FromPort: 53
+          ToPort: 53
+          CidrIp: 192.168.0.0/16
+      Tags:
+        - Key: Name
+          Value: Route53_Inbound_Outbound_Resolver_SG
+
+
+  R53OutboundResolverEndpoint:
+      Type: AWS::Route53Resolver::ResolverEndpoint
+      Properties:
+        Direction: OUTBOUND
+        IpAddresses:
+         - SubnetId: !Ref pSubnet1Name
+         - SubnetId: !Ref pSubnet2Name
+        Name: R53OutboundResolver
+        SecurityGroupIds: 
+          - !Ref EndpointSecurityGroup
+        Tags:
+        -
+          Key: Name
+          Value: R53OutboundResolver
+  # Resolver rule for on-prem/external domain
+  R53OutboundRule1:
+      Type: AWS::Route53Resolver::ResolverRule
+      Properties:
+        DomainName: !Ref pDomainName
+        Name: Outbound-Rule
+        ResolverEndpointId: !Ref R53OutboundResolverEndpoint
+        RuleType: FORWARD
+        TargetIps:
+          -
+           Ip: !Select [ 0, !Ref pDomainservers ]
+           Port: "53"
+          -
+           Ip: !Select [ 1, !Ref pDomainservers ]
+           Port: "53"
+        Tags:
+        -
+          Key: Name
+          Value: Outbound-Rule
+
+  VPCAssociationRule1:
+    Type: AWS::Route53Resolver::ResolverRuleAssociation
+    Properties:
+      Name: !Ref pVPCName
+      ResolverRuleId: !Ref R53OutboundRule1
+      VPCId: !Ref pVPCID
+
+  # Inbound Resolver  to authorise external/on-prem network to resolve AWS hosted zone
+  R53InboundResolverEndpoint:
+      Type: AWS::Route53Resolver::ResolverEndpoint
+      Properties:
+        Direction: INBOUND
+        IpAddresses:
+         - SubnetId: !Ref pSubnet1Name
+         - SubnetId: !Ref pSubnet2Name
+        Name: R53InboundResolver
+        SecurityGroupIds: 
+          - !Ref EndpointSecurityGroup
+        Tags:
+        -
+          Key: Name
+          Value: R53InboundResolver
+
+  # RAM Resolver Rule Sharing
+  RAMR53OutboundRules:
+    Type: "AWS::RAM::ResourceShare"
+    Condition: DoSharingResoverRules
+    Properties:
+      Name: "Resolver-Forward-Rules"
+      ResourceArns:
+        - !GetAtt R53OutboundRule1.Arn
+      Principals:
+        - !Ref pDestinationAccountOwner
+      Tags:
+        - Key: "Name"
+          Value: "Resolver-Forward-Rules"
+
+Outputs:
+  R53OutboundRule1Arn:
+    Description: Resolver Forward Rule Arn
+    Value: !GetAtt R53OutboundRule1.Arn
+    Export:
+      Name: "Resolver-Forward-Rules-Arn"

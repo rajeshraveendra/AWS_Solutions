@@ -1,0 +1,49 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Custome Zone for Client  & reverse IP Zone. Created by Rajesh Raveendran; Date: 29-03-2024
+
+
+Parameters:
+  HostedZoneName:
+   Description: Zone for client
+   Type: String
+   Default: non-prod.mydomain.corp
+  RevCIDRReverseZone1:
+   Description: Reverse CIDR for Zone
+   Type: String
+   Default: 0.16.10
+  VPCID:
+   Description: VPC ID of the VPC to be associated with
+   Type: String
+
+
+Resources:
+  ForwdZone1:
+    Type: "AWS::Route53::HostedZone"
+    Properties:
+      HostedZoneConfig: 
+        Comment: "Private Hosted Zone"
+      Name: !Ref HostedZoneName
+      VPCs:
+        - VPCId: !Ref VPCID
+          VPCRegion: !Ref 'AWS::Region'
+
+  ReverseZone1:
+    Type: "AWS::Route53::HostedZone"
+    Properties:
+      HostedZoneConfig:
+        Comment: "Reverse Zone for Client Private Hosted Zone"
+      Name: !Sub ${RevCIDRReverseZone1}.in-addr.arpa
+      VPCs:
+        - VPCId: !Ref VPCID
+          VPCRegion: !Ref 'AWS::Region'
+
+Outputs:
+  PHZID:
+    Description: PHZ ID for Normal Zone
+    Value: !Ref  ForwdZone1
+  ReversePHZID1:
+    Description: Reverse PHZ ID for Normal Zone
+    Value: !Ref  ReverseZone1
+

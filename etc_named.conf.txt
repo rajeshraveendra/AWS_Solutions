@@ -1,0 +1,36 @@
+/etc/named.conf
+
+========================
+
+options {
+directory "/var/named";
+dump-file "/var/named/data/cache_dump.db";
+statistics-file "/var/named/data/named_stats.txt";
+memstatistics-file "/var/named/data/named_mem_stats.txt";
+allow-query { any; };
+allow-transfer { localhost; 192.168.11.240; };
+recursion yes;
+forward first;
+forwarders {
+192.168.0.2;
+};
+dnssec-enable yes;
+dnssec-validation yes;
+dnssec-lookaside auto;
+/* Path to ISC DLV key */
+bindkeys-file "/etc/named.iscdlv.key";
+managed-keys-directory "/var/named/dynamic";
+};
+
+
+zone "mydomain.corp" IN {
+type master;
+file "mydomain.zone";
+allow-update { none; };
+};
+
+zone "non-prod.mydomain.corp" {
+type forward;
+forward only;
+forwarders {10.16.11.64; 10.16.11.169; };
+};

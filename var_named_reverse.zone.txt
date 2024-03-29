@@ -1,0 +1,15 @@
+/var/named/reverse.zone
+==========================
+
+$TTL 1D
+@       IN      SOA     dns.mydomain.corp root.dns.mydomain.corp. (
+                        0       ;       serial
+                        1D      ;       refresh
+                        1H      ;       retry
+                        1W      ;       expire
+                        3H )    ;       minimum
+        NS      dns.mydomain.corp.
+240     PTR     dns.mydomain.corp.
+192.168.1.179   PTR     vpn.mydomain.corp.
+192.168.1.100	PTR	web.mydomain.corp.
+192.168.11.150	PTR	db.mydomain.corp.

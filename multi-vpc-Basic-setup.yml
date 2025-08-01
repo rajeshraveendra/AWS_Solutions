@@ -1,0 +1,1622 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  [Creates VPCs with subnets and connects them using a Transit Gateway.]
+  [Documentation: Refer the output section for documentation.]
+  [Author: Rajesh Raveendran]
+  [Version: 1.0.0]
+  [Date: 31-07-2025]
+
+Parameters:
+  VPC1Cidr:
+    Type: String
+    Description: CIDR block for VPC 1
+    Default: 10.10.0.0/24
+  VPC2Cidr:
+    Type: String
+    Description: CIDR block for VPC 2
+    Default: 10.20.0.0/24
+  VPC3Cidr:
+    Type: String
+    Description: CIDR block for VPC 3
+    Default: 10.30.0.0/24
+  VPC4Cidr:
+    Type: String
+    Description: CIDR block for VPC 4
+    Default: 10.40.0.0/24
+  Az1:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: First Availability Zone
+  Az2:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Second Availability Zone
+  InstanceImageId:
+    Type: AWS::EC2::Image::Id
+    Description: AMI ID for EC2 instance
+    Default: ami-093dc6859d9315726
+
+Resources:
+########## VPC1 Resources ###################################################
+
+  VPC1:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPC1Cidr
+      Tags:
+        - Key: Name
+          Value: VPC1
+  VPC1IGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: VPC1-IGW
+  VPC1IGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC1
+      InternetGatewayId: !Ref VPC1IGW
+
+  VPC1TgwSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC1
+      CidrBlock: !Select [0, !Cidr [!Ref VPC1Cidr, 2, 4]] # 2 subnets of /28 out of that the first one will be used
+      AvailabilityZone: !Ref Az1
+      Tags:
+        - Key: Name
+          Value: VPC1-Tgw1
+
+  VPC1TgwSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC1
+      CidrBlock: !Select [1, !Cidr [!Ref VPC1Cidr, 2, 4]] # 2 subnets of /28 out of that the second one will be used
+      AvailabilityZone: !Ref Az2
+      Tags:
+        - Key: Name
+          Value: VPC1-Tgw2
+
+  VPC1PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC1
+      CidrBlock: !Select [2, !Cidr [!Ref VPC1Cidr, 6, 5]] # 6 subnets of /27 out of that the second one will be used
+      AvailabilityZone: !Ref Az1
+      Tags:
+        - Key: Name
+          Value: VPC1-Priv1
+
+  VPC1PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC1
+      CidrBlock: !Select [3, !Cidr [!Ref VPC1Cidr, 6, 5]] # 6 subnets of /27 out of that the third one will be used
+      AvailabilityZone: !Ref Az2
+      Tags:
+        - Key: Name
+          Value: VPC1-Priv2
+
+  VPC1PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC1
+      CidrBlock: !Select [4, !Cidr [!Ref VPC1Cidr, 6, 5]] # 6 subnets of /27 out of that the forth one will be used
+      AvailabilityZone: !Ref Az1
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: VPC1-Pub1
+
+  VPC1PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC1
+      CidrBlock: !Select [5, !Cidr [!Ref VPC1Cidr, 6, 5]] # 6 subnets of /27 out of that the fifth one will be used
+      AvailabilityZone: !Ref Az2
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: VPC1-Pub2
+
+  VPC1TgwRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC1
+      Tags:
+        - Key: Name
+          Value: VPC1-TgwRT1
+
+  VPC1TgwRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC1
+      Tags:
+        - Key: Name
+          Value: VPC1-TgwRT2
+
+  VPC1PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC1
+      Tags:
+        - Key: Name
+          Value: VPC1-PrivRT1
+
+  VPC1PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC1
+      Tags:
+        - Key: Name
+          Value: VPC1-PrivRT2
+
+  VPC1PublicRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC1
+      Tags:
+        - Key: Name
+          Value: VPC1-PubRT1
+
+  VPC1PublicRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC1
+      Tags:
+        - Key: Name
+          Value: VPC1-PubRT2
+
+  VPC1TgwRt1Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1TgwRouteTable1
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC1TgwRt2Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1TgwRouteTable2
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC1TgwRt1Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1TgwRouteTable1
+      DestinationCidrBlock: !Ref VPC3Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC1TgwRt2Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1TgwRouteTable2
+      DestinationCidrBlock: !Ref VPC3Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC1TgwRt1Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1TgwRouteTable1
+      DestinationCidrBlock: !Ref VPC4Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC1TgwRt2Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1TgwRouteTable2
+      DestinationCidrBlock: !Ref VPC4Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC1PrivRt1Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1PrivateRouteTable1
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+ 
+  VPC1PrivRt2Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1PrivateRouteTable2
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC1PrivRt1Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1PrivateRouteTable1
+      DestinationCidrBlock: !Ref VPC3Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC1PrivRt2Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1PrivateRouteTable2
+      DestinationCidrBlock: !Ref VPC3Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC1PrivRt1Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1PrivateRouteTable1
+      DestinationCidrBlock: !Ref VPC4Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC1PrivRt2Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1PrivateRouteTable2
+      DestinationCidrBlock: !Ref VPC4Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC1PubRt1Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1PublicRouteTable1
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+ 
+  VPC1PubRt2Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1PublicRouteTable2
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC1PubRt1Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1PublicRouteTable1
+      DestinationCidrBlock: !Ref VPC3Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC1PubRt2Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1PublicRouteTable2
+      DestinationCidrBlock: !Ref VPC3Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC1PubRt1Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1PublicRouteTable1
+      DestinationCidrBlock: !Ref VPC4Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC1PubRt2Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1PublicRouteTable2
+      DestinationCidrBlock: !Ref VPC4Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC1PubRT1DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1IGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1PublicRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref VPC1IGW
+
+  VPC1PubRT2DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1IGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1PublicRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref VPC1IGW
+
+  VPC1Tgw1RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC1TgwSubnet1
+      RouteTableId: !Ref VPC1TgwRouteTable1
+
+  VPC1Tgw2RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC1TgwSubnet2
+      RouteTableId: !Ref VPC1TgwRouteTable2
+
+  VPC1Priv1RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC1PrivateSubnet1
+      RouteTableId: !Ref VPC1PrivateRouteTable1
+
+  VPC1Priv2RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC1PrivateSubnet2
+      RouteTableId: !Ref VPC1PrivateRouteTable2
+
+  VPC1Pub1RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC1PublicSubnet1
+      RouteTableId: !Ref VPC1PublicRouteTable1
+
+  VPC1Pub2RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC1PublicSubnet2
+      RouteTableId: !Ref VPC1PublicRouteTable2
+
+  VPC1TGWAttachment:
+    Type: AWS::EC2::TransitGatewayVpcAttachment
+    Properties:
+      TransitGatewayId: !Ref TransitGateway
+      VpcId: !Ref VPC1
+      SubnetIds:
+        - !Ref VPC1TgwSubnet1
+        - !Ref VPC1TgwSubnet2
+      Tags:
+        - Key: Name
+          Value: VPC1Attachment
+
+########## VPC1 Resources End here  #########################################
+#
+#
+#
+#
+########## VPC2 Resources ###################################################
+  VPC2:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPC2Cidr
+      Tags:
+        - Key: Name
+          Value: VPC2
+  VPC2IGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: VPC2-IGW
+  VPC2IGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC2
+      InternetGatewayId: !Ref VPC2IGW
+
+  VPC2TgwSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC2
+      CidrBlock: !Select [0, !Cidr [!Ref VPC2Cidr, 2, 4]] # 2 subnets of /28 out of that the first one will be used
+      AvailabilityZone: !Ref Az1
+      Tags:
+        - Key: Name
+          Value: VPC2-Tgw1
+
+  VPC2TgwSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC2
+      CidrBlock: !Select [1, !Cidr [!Ref VPC2Cidr, 2, 4]] # 2 subnets of /28 out of that the second one will be used
+      AvailabilityZone: !Ref Az2
+      Tags:
+        - Key: Name
+          Value: VPC2-Tgw2
+
+  VPC2PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC2
+      CidrBlock: !Select [2, !Cidr [!Ref VPC2Cidr, 6, 5]] # 6 subnets of /27 out of that the second one will be used
+      AvailabilityZone: !Ref Az1
+      Tags:
+        - Key: Name
+          Value: VPC2-Priv1
+
+  VPC2PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC2
+      CidrBlock: !Select [3, !Cidr [!Ref VPC2Cidr, 6, 5]] # 6 subnets of /27 out of that the third one will be used
+      AvailabilityZone: !Ref Az2
+      Tags:
+        - Key: Name
+          Value: VPC2-Priv2
+
+  VPC2PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC2
+      CidrBlock: !Select [4, !Cidr [!Ref VPC2Cidr, 6, 5]] # 6 subnets of /27 out of that the forth one will be used
+      AvailabilityZone: !Ref Az1
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: VPC2-Pub1
+
+  VPC2PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC2
+      CidrBlock: !Select [5, !Cidr [!Ref VPC2Cidr, 6, 5]] # 6 subnets of /27 out of that the fifth one will be used
+      AvailabilityZone: !Ref Az2
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: VPC2-Pub2
+
+  VPC2TgwRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC2
+      Tags:
+        - Key: Name
+          Value: VPC2-TgwRT1
+
+  VPC2TgwRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC2
+      Tags:
+        - Key: Name
+          Value: VPC2-TgwRT2
+
+  VPC2PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC2
+      Tags:
+        - Key: Name
+          Value: VPC2-PrivRT1
+
+  VPC2PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC2
+      Tags:
+        - Key: Name
+          Value: VPC2-PrivRT2
+
+  VPC2PublicRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC2
+      Tags:
+        - Key: Name
+          Value: VPC2-PubRT1
+
+  VPC2PublicRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC2
+      Tags:
+        - Key: Name
+          Value: VPC2-PubRT2
+
+  VPC2TgwRt1Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2TgwRouteTable1
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC2TgwRt2Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2TgwRouteTable2
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC2TgwRt1Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2TgwRouteTable1
+      DestinationCidrBlock: !Ref VPC3Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC2TgwRt2Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2TgwRouteTable2
+      DestinationCidrBlock: !Ref VPC3Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC2TgwRt1Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2TgwRouteTable1
+      DestinationCidrBlock: !Ref VPC4Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC2TgwRt2Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2TgwRouteTable2
+      DestinationCidrBlock: !Ref VPC4Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC2PrivRt1Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2PrivateRouteTable1
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+ 
+  VPC2PrivRt2Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2PrivateRouteTable2
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC2PrivRt1Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2PrivateRouteTable1
+      DestinationCidrBlock: !Ref VPC3Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC2PrivRt2Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2PrivateRouteTable2
+      DestinationCidrBlock: !Ref VPC3Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC2PrivRt1Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2PrivateRouteTable1
+      DestinationCidrBlock: !Ref VPC4Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC2PrivRt2Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2PrivateRouteTable2
+      DestinationCidrBlock: !Ref VPC4Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC2PubRt1Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2PublicRouteTable1
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+ 
+  VPC2PubRt2Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2PublicRouteTable2
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC2PubRt1Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2PublicRouteTable1
+      DestinationCidrBlock: !Ref VPC3Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC2PubRt2Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2PublicRouteTable2
+      DestinationCidrBlock: !Ref VPC3Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC2PubRt1Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2PublicRouteTable1
+      DestinationCidrBlock: !Ref VPC4Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC2PubRt2Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2PublicRouteTable2
+      DestinationCidrBlock: !Ref VPC4Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC2PubRT1DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2IGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2PublicRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref VPC2IGW
+
+  VPC2PubRT2DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2IGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2PublicRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref VPC2IGW
+
+  VPC2Tgw1RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC2TgwSubnet1
+      RouteTableId: !Ref VPC2TgwRouteTable1
+
+  VPC2Tgw2RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC2TgwSubnet2
+      RouteTableId: !Ref VPC2TgwRouteTable2
+
+  VPC2Priv1RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC2PrivateSubnet1
+      RouteTableId: !Ref VPC2PrivateRouteTable1
+
+  VPC2Priv2RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC2PrivateSubnet2
+      RouteTableId: !Ref VPC2PrivateRouteTable2
+
+  VPC2Pub1RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC2PublicSubnet1
+      RouteTableId: !Ref VPC2PublicRouteTable1
+
+  VPC2Pub2RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC2PublicSubnet2
+      RouteTableId: !Ref VPC2PublicRouteTable2
+
+  VPC2TGWAttachment:
+    Type: AWS::EC2::TransitGatewayVpcAttachment
+    Properties:
+      TransitGatewayId: !Ref TransitGateway
+      VpcId: !Ref VPC2
+      SubnetIds:
+        - !Ref VPC2TgwSubnet1
+        - !Ref VPC2TgwSubnet2
+      Tags:
+        - Key: Name
+          Value: VPC2Attachment
+          
+########## VPC2 Resources End here  #########################################
+#
+#
+#
+#
+########## VPC3 Resources ###################################################
+
+  VPC3:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPC3Cidr
+      Tags:
+        - Key: Name
+          Value: VPC3
+  VPC3IGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: VPC3-IGW
+  VPC3IGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC3
+      InternetGatewayId: !Ref VPC3IGW
+
+  VPC3TgwSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC3
+      CidrBlock: !Select [0, !Cidr [!Ref VPC3Cidr, 2, 4]] # 2 subnets of /28 out of that the first one will be used
+      AvailabilityZone: !Ref Az1
+      Tags:
+        - Key: Name
+          Value: VPC3-Tgw1
+
+  VPC3TgwSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC3
+      CidrBlock: !Select [1, !Cidr [!Ref VPC3Cidr, 2, 4]] # 2 subnets of /28 out of that the second one will be used
+      AvailabilityZone: !Ref Az2
+      Tags:
+        - Key: Name
+          Value: VPC3-Tgw2
+
+  VPC3PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC3
+      CidrBlock: !Select [2, !Cidr [!Ref VPC3Cidr, 6, 5]] # 6 subnets of /27 out of that the second one will be used
+      AvailabilityZone: !Ref Az1
+      Tags:
+        - Key: Name
+          Value: VPC3-Priv1
+
+  VPC3PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC3
+      CidrBlock: !Select [3, !Cidr [!Ref VPC3Cidr, 6, 5]] # 6 subnets of /27 out of that the third one will be used
+      AvailabilityZone: !Ref Az2
+      Tags:
+        - Key: Name
+          Value: VPC3-Priv2
+
+  VPC3PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC3
+      CidrBlock: !Select [4, !Cidr [!Ref VPC3Cidr, 6, 5]] # 6 subnets of /27 out of that the forth one will be used
+      AvailabilityZone: !Ref Az1
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: VPC3-Pub1
+
+  VPC3PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC3
+      CidrBlock: !Select [5, !Cidr [!Ref VPC3Cidr, 6, 5]] # 6 subnets of /27 out of that the fifth one will be used
+      AvailabilityZone: !Ref Az2
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: VPC3-Pub2
+
+  VPC3TgwRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC3
+      Tags:
+        - Key: Name
+          Value: VPC3-TgwRT1
+
+  VPC3TgwRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC3
+      Tags:
+        - Key: Name
+          Value: VPC3-TgwRT2
+
+  VPC3PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC3
+      Tags:
+        - Key: Name
+          Value: VPC3-PrivRT1
+
+  VPC3PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC3
+      Tags:
+        - Key: Name
+          Value: VPC3-PrivRT2
+
+  VPC3PublicRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC3
+      Tags:
+        - Key: Name
+          Value: VPC3-PubRT1
+
+  VPC3PublicRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC3
+      Tags:
+        - Key: Name
+          Value: VPC3-PubRT2
+
+  VPC3TgwRt1Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC3TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC3TgwRouteTable1
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC3TgwRt2Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC3TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC3TgwRouteTable2
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC3TgwRt1Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC3TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC3TgwRouteTable1
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC3TgwRt2Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC3TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC3TgwRouteTable2
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC3TgwRt1Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC3TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC3TgwRouteTable1
+      DestinationCidrBlock: !Ref VPC4Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC3TgwRt2Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC3TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC3TgwRouteTable2
+      DestinationCidrBlock: !Ref VPC4Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC3PrivRt1Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC3TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC3PrivateRouteTable1
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+ 
+  VPC3PrivRt2Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC3TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC3PrivateRouteTable2
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC3PrivRt1Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC3TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC3PrivateRouteTable1
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC3PrivRt2Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC3TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC3PrivateRouteTable2
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC3PrivRt1Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC3TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC3PrivateRouteTable1
+      DestinationCidrBlock: !Ref VPC4Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC3PrivRt2Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC3TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC3PrivateRouteTable2
+      DestinationCidrBlock: !Ref VPC4Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC3PubRt1Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC3TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC3PublicRouteTable1
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+ 
+  VPC3PubRt2Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC3TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC3PublicRouteTable2
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC3PubRt1Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC3TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC3PublicRouteTable1
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC3PubRt2Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC3TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC3PublicRouteTable2
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC3PubRt1Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC3TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC3PublicRouteTable1
+      DestinationCidrBlock: !Ref VPC4Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC3PubRt2Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC3TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC3PublicRouteTable2
+      DestinationCidrBlock: !Ref VPC4Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC3PubRT1DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPC3IGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC3PublicRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref VPC3IGW
+
+  VPC3PubRT2DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPC3IGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC3PublicRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref VPC3IGW
+
+  VPC3Tgw1RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC3TgwSubnet1
+      RouteTableId: !Ref VPC3TgwRouteTable1
+
+  VPC3Tgw2RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC3TgwSubnet2
+      RouteTableId: !Ref VPC3TgwRouteTable2
+
+  VPC3Priv1RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC3PrivateSubnet1
+      RouteTableId: !Ref VPC3PrivateRouteTable1
+
+  VPC3Priv2RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC3PrivateSubnet2
+      RouteTableId: !Ref VPC3PrivateRouteTable2
+
+  VPC3Pub1RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC3PublicSubnet1
+      RouteTableId: !Ref VPC3PublicRouteTable1
+
+  VPC3Pub2RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC3PublicSubnet2
+      RouteTableId: !Ref VPC3PublicRouteTable2
+
+  VPC3TGWAttachment:
+    Type: AWS::EC2::TransitGatewayVpcAttachment
+    Properties:
+      TransitGatewayId: !Ref TransitGateway
+      VpcId: !Ref VPC3
+      SubnetIds:
+        - !Ref VPC3TgwSubnet1
+        - !Ref VPC3TgwSubnet2
+      Tags:
+        - Key: Name
+          Value: VPC3Attachment
+
+########## VPC3 Resources End here  #########################################
+#
+#
+#
+#
+########## VPC4 Resources ###################################################
+  VPC4:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPC4Cidr
+      Tags:
+        - Key: Name
+          Value: VPC4
+  VPC4IGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: VPC4-IGW
+  VPC4IGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC4
+      InternetGatewayId: !Ref VPC4IGW
+
+  VPC4TgwSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC4
+      CidrBlock: !Select [0, !Cidr [!Ref VPC4Cidr, 2, 4]] # 2 subnets of /28 out of that the first one will be used
+      AvailabilityZone: !Ref Az1
+      Tags:
+        - Key: Name
+          Value: VPC4-Tgw1
+
+  VPC4TgwSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC4
+      CidrBlock: !Select [1, !Cidr [!Ref VPC4Cidr, 2, 4]] # 2 subnets of /28 out of that the second one will be used
+      AvailabilityZone: !Ref Az2
+      Tags:
+        - Key: Name
+          Value: VPC4-Tgw2
+
+  VPC4PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC4
+      CidrBlock: !Select [2, !Cidr [!Ref VPC4Cidr, 6, 5]] # 6 subnets of /27 out of that the second one will be used
+      AvailabilityZone: !Ref Az1
+      Tags:
+        - Key: Name
+          Value: VPC4-Priv1
+
+  VPC4PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC4
+      CidrBlock: !Select [3, !Cidr [!Ref VPC4Cidr, 6, 5]] # 6 subnets of /27 out of that the third one will be used
+      AvailabilityZone: !Ref Az2
+      Tags:
+        - Key: Name
+          Value: VPC4-Priv2
+
+  VPC4PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC4
+      CidrBlock: !Select [4, !Cidr [!Ref VPC4Cidr, 6, 5]] # 6 subnets of /27 out of that the forth one will be used
+      AvailabilityZone: !Ref Az1
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: VPC4-Pub1
+
+  VPC4PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC4
+      CidrBlock: !Select [5, !Cidr [!Ref VPC4Cidr, 6, 5]] # 6 subnets of /27 out of that the fifth one will be used
+      AvailabilityZone: !Ref Az2
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: VPC4-Pub2
+
+  VPC4TgwRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC4
+      Tags:
+        - Key: Name
+          Value: VPC4-TgwRT1
+
+  VPC4TgwRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC4
+      Tags:
+        - Key: Name
+          Value: VPC4-TgwRT2
+
+  VPC4PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC4
+      Tags:
+        - Key: Name
+          Value: VPC4-PrivRT1
+
+  VPC4PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC4
+      Tags:
+        - Key: Name
+          Value: VPC4-PrivRT2
+
+  VPC4PublicRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC4
+      Tags:
+        - Key: Name
+          Value: VPC4-PubRT1
+
+  VPC4PublicRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC4
+      Tags:
+        - Key: Name
+          Value: VPC4-PubRT2
+
+  VPC4TgwRt1Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC4TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC4TgwRouteTable1
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC4TgwRt2Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC4TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC4TgwRouteTable2
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC4TgwRt1Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC4TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC4TgwRouteTable1
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC4TgwRt2Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC4TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC4TgwRouteTable2
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC4TgwRt1Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC4TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC4TgwRouteTable1
+      DestinationCidrBlock: !Ref VPC3Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC4TgwRt2Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC4TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC4TgwRouteTable2
+      DestinationCidrBlock: !Ref VPC3Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC4PrivRt1Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC4TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC4PrivateRouteTable1
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+ 
+  VPC4PrivRt2Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC4TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC4PrivateRouteTable2
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC4PrivRt1Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC4TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC4PrivateRouteTable1
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC4PrivRt2Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC4TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC4PrivateRouteTable2
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC4PrivRt1Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC4TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC4PrivateRouteTable1
+      DestinationCidrBlock: !Ref VPC3Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC4PrivRt2Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC4TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC4PrivateRouteTable2
+      DestinationCidrBlock: !Ref VPC3Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC4PubRt1Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC4TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC4PublicRouteTable1
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+ 
+  VPC4PubRt2Route1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC4TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC4PublicRouteTable2
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC4PubRt1Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC4TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC4PublicRouteTable1
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC4PubRt2Route2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC4TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC4PublicRouteTable2
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC4PubRt1Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC4TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC4PublicRouteTable1
+      DestinationCidrBlock: !Ref VPC3Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC4PubRt2Route3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC4TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC4PublicRouteTable2
+      DestinationCidrBlock: !Ref VPC3Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC4PubRT1DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPC4IGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC4PublicRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref VPC4IGW
+
+  VPC4PubRT2DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPC4IGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC4PublicRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref VPC4IGW
+
+  VPC4Tgw1RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC4TgwSubnet1
+      RouteTableId: !Ref VPC4TgwRouteTable1
+
+  VPC4Tgw2RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC4TgwSubnet2
+      RouteTableId: !Ref VPC4TgwRouteTable2
+
+  VPC4Priv1RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC4PrivateSubnet1
+      RouteTableId: !Ref VPC4PrivateRouteTable1
+
+  VPC4Priv2RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC4PrivateSubnet2
+      RouteTableId: !Ref VPC4PrivateRouteTable2
+
+  VPC4Pub1RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC4PublicSubnet1
+      RouteTableId: !Ref VPC4PublicRouteTable1
+
+  VPC4Pub2RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC4PublicSubnet2
+      RouteTableId: !Ref VPC4PublicRouteTable2
+
+  VPC4TGWAttachment:
+    Type: AWS::EC2::TransitGatewayVpcAttachment
+    Properties:
+      TransitGatewayId: !Ref TransitGateway
+      VpcId: !Ref VPC4
+      SubnetIds:
+        - !Ref VPC4TgwSubnet1
+        - !Ref VPC4TgwSubnet2
+      Tags:
+        - Key: Name
+          Value: VPC4Attachment
+          
+########## VPC4 Resources End here  #########################################
+#
+#
+#
+#
+########## TGW Resources ###################################################
+
+  TransitGateway:
+    Type: AWS::EC2::TransitGateway
+    Properties:
+      Description: TGW connecting all VPCs
+      DefaultRouteTableAssociation: enable
+      DefaultRouteTablePropagation: enable
+      Tags:
+        - Key: Name
+          Value: TransitGateway
+
+########## TGW Resources End here ##########################################
+#
+#
+#
+#
+########## Flow logs  ##################################################
+
+  FlowLogIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: vpc-flow-logs.amazonaws.com
+            Action: sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: VPC-TGW-FlowLogPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogGroups
+                Resource: "*"
+  TGWFlowLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "TGW-Flowlog"
+      RetentionInDays: 30
+
+  VPC1FlowLogLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "VPC1-Flowlog"
+      RetentionInDays: 30
+
+  VPC2FlowLogLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "VPC2-Flowlog"
+      RetentionInDays: 30
+
+  VPC3FlowLogLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "VPC3-Flowlog"
+      RetentionInDays: 30
+
+  VPC4FlowLogLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "VPC4-Flowlog"
+      RetentionInDays: 30
+
+  TGWFlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      ResourceType: TransitGateway
+      ResourceId: !Ref TransitGateway
+      LogDestinationType: cloud-watch-logs
+      LogGroupName: !Ref TGWFlowLogGroup
+      DeliverLogsPermissionArn: !GetAtt  FlowLogIAMRole.Arn
+      Tags:
+        - Key: Name
+          Value: TGW-Flowlog
+
+  VPC1FlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt FlowLogIAMRole.Arn
+      LogGroupName: !Ref VPC1FlowLogLogGroup
+      ResourceId: !Ref VPC1
+      ResourceType: VPC
+      TrafficType: ALL
+      Tags:
+        - Key: Name
+          Value: VPC1-Flowlog
+
+  VPC2FlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt FlowLogIAMRole.Arn
+      LogGroupName: !Ref VPC2FlowLogLogGroup
+      ResourceId: !Ref VPC2
+      ResourceType: VPC
+      TrafficType: ALL
+      Tags:
+        - Key: Name
+          Value: VPC2-Flowlog
+
+  VPC3FlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt FlowLogIAMRole.Arn
+      LogGroupName: !Ref VPC3FlowLogLogGroup
+      ResourceId: !Ref VPC3
+      ResourceType: VPC
+      TrafficType: ALL
+      Tags:
+        - Key: Name
+          Value: VPC3-Flowlog
+
+  VPC4FlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt FlowLogIAMRole.Arn
+      LogGroupName: !Ref VPC1FlowLogLogGroup
+      ResourceId: !Ref VPC4
+      ResourceType: VPC
+      TrafficType: ALL
+      Tags:
+        - Key: Name
+          Value: VPC4-Flowlog
+########## Flow logs End here ##########################################
+#
+#
+#
+#
+########## EC2 Resources ###################################################
+  VPCKeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: VPC1-KeyPair
+      KeyType: rsa
+      Tags:
+        - Key: Name
+          Value: VPC-KeyPair
+
+  VPC1SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH from Internet
+      VpcId: !Ref VPC1
+      GroupName: VPC1-SG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: VPC1-SG
+
+  EC2SSMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-SSMRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Path: /
+
+  EC2SSMInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: "EC2-SSMInstanceProfile"
+      Roles:
+        - !Ref EC2SSMRole
+
+  VPC1EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref InstanceImageId
+      InstanceType: t3.micro
+      SubnetId: !Ref VPC1PublicSubnet1
+      KeyName: !Ref VPCKeyPair
+      IamInstanceProfile: !Ref EC2SSMInstanceProfile
+      SecurityGroupIds:
+        - !Ref VPC1SecurityGroup
+      Tags:
+        - Key: Name
+          Value: VPC1-Instance-BastionHost
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 10
+            VolumeType: gp3
+########## EC2 Resources ###################################################
+
+
+
+Outputs:
+  ArchitectureDiagram:
+    Description: "Link to architectural diagram"
+    Value: "https://github.com/rajeshraveendra/AWS_Solutions/wiki/Simple-Multi%E2%80%90VPC-Setup-with-TransitGateway"
+  TGWId:
+    Value: !Ref TransitGateway
+    Description: The Transit Gateway ID

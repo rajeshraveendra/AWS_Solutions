@@ -1,0 +1,1244 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  [Creates Ingress, Egress and Workload VPCs with subnets and connects them using a Transit Gateway.]
+  [Documentation: Refer the output section for documentation.]
+  [Author: Rajesh Raveendran]
+  [Version: 1.0.0]
+  [Date: 04-08-2025]
+
+Parameters:
+  IngressVPCCidr:
+    Type: String
+    Description: CIDR block for VPC 1
+    Default: 10.10.0.0/24
+  EgressVPCCidr:
+    Type: String
+    Description: CIDR block for VPC 2
+    Default: 10.20.0.0/24
+  VPC1Cidr:
+    Type: String
+    Description: CIDR block for VPC 3
+    Default: 10.30.0.0/24
+  VPC2Cidr:
+    Type: String
+    Description: CIDR block for VPC 4
+    Default: 10.40.0.0/24
+  Az1:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: First Availability Zone
+  Az2:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Second Availability Zone
+  InstanceImageId:
+    Type: AWS::EC2::Image::Id
+    Description: AMI ID for EC2 instance
+    Default: ami-093dc6859d9315726
+
+Resources:
+########## IngressVPC Resources ###################################################
+
+  IngressVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref IngressVPCCidr
+      Tags:
+        - Key: Name
+          Value: IngressVPC
+  IngressVPCIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: IngressVPC-IGW
+  IngressVPCIGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref IngressVPC
+      InternetGatewayId: !Ref IngressVPCIGW
+
+  IngressVPCTgwSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref IngressVPC
+      CidrBlock: !Select [0, !Cidr [!Ref IngressVPCCidr, 2, 4]] # 2 subnets of /28 out of that the first one will be used
+      AvailabilityZone: !Ref Az1
+      Tags:
+        - Key: Name
+          Value: IngressVPC-Tgw1
+
+  IngressVPCTgwSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref IngressVPC
+      CidrBlock: !Select [1, !Cidr [!Ref IngressVPCCidr, 2, 4]] # 2 subnets of /28 out of that the second one will be used
+      AvailabilityZone: !Ref Az2
+      Tags:
+        - Key: Name
+          Value: IngressVPC-Tgw2
+
+  IngressVPCPublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref IngressVPC
+      CidrBlock: !Select [4, !Cidr [!Ref IngressVPCCidr, 6, 5]] # 6 subnets of /27 out of that the forth one will be used
+      AvailabilityZone: !Ref Az1
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: IngressVPC-Pub1
+
+  IngressVPCPublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref IngressVPC
+      CidrBlock: !Select [5, !Cidr [!Ref IngressVPCCidr, 6, 5]] # 6 subnets of /27 out of that the fifth one will be used
+      AvailabilityZone: !Ref Az2
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: IngressVPC-Pub2
+
+  IngressVPCTgwRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref IngressVPC
+      Tags:
+        - Key: Name
+          Value: IngressVPC-TgwRT
+
+  IngressVPCPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref IngressVPC
+      Tags:
+        - Key: Name
+          Value: IngressVPC-PubRT
+
+  IngressVPCPubRtRoute1:
+    Type: AWS::EC2::Route
+    DependsOn: IngressVPCTGWAttachment
+    Properties:
+      RouteTableId: !Ref IngressVPCPublicRouteTable
+      DestinationCidrBlock: !Ref EgressVPCCidr
+      GatewayId: !Ref TransitGateway
+ 
+  IngressVPCPubRtRoute2:
+    Type: AWS::EC2::Route
+    DependsOn: IngressVPCTGWAttachment
+    Properties:
+      RouteTableId: !Ref IngressVPCPublicRouteTable
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+
+  IngressVPCPubRtRoute3:
+    Type: AWS::EC2::Route
+    DependsOn: IngressVPCTGWAttachment
+    Properties:
+      RouteTableId: !Ref IngressVPCPublicRouteTable
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+
+  IngressVPCPubRTDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: IngressVPCIGWAttachment
+    Properties:
+      RouteTableId: !Ref IngressVPCPublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IngressVPCIGW
+
+  IngressVPCTgw1RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref IngressVPCTgwSubnet1
+      RouteTableId: !Ref IngressVPCTgwRouteTable
+
+  IngressVPCTgw2RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref IngressVPCTgwSubnet2
+      RouteTableId: !Ref IngressVPCTgwRouteTable
+
+  IngressVPCPub1RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref IngressVPCPublicSubnet1
+      RouteTableId: !Ref IngressVPCPublicRouteTable
+
+  IngressVPCPub2RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref IngressVPCPublicSubnet2
+      RouteTableId: !Ref IngressVPCPublicRouteTable
+
+  IngressVPCTGWAttachment:
+    Type: AWS::EC2::TransitGatewayVpcAttachment
+    Properties:
+      TransitGatewayId: !Ref TransitGateway
+      VpcId: !Ref IngressVPC
+      SubnetIds:
+        - !Ref IngressVPCTgwSubnet1
+        - !Ref IngressVPCTgwSubnet2
+      Tags:
+        - Key: Name
+          Value: IngressVPCAttachment
+
+  IngressVPCTGWRouteAssociation:
+    Type: AWS::EC2::TransitGatewayRouteTableAssociation
+    Properties:
+      TransitGatewayAttachmentId: !Ref IngressVPCTGWAttachment
+      TransitGatewayRouteTableId: !Ref IngressVPCTgwRT
+
+  IngressVPCTGWRoutePropagation1:
+    Type: AWS::EC2::TransitGatewayRouteTablePropagation
+    Properties:
+      TransitGatewayAttachmentId: !Ref VPC1TGWAttachment
+      TransitGatewayRouteTableId: !Ref IngressVPCTgwRT
+
+  IngressVPCTGWRoutePropagation2:
+    Type: AWS::EC2::TransitGatewayRouteTablePropagation
+    Properties:
+      TransitGatewayAttachmentId: !Ref VPC2TGWAttachment
+      TransitGatewayRouteTableId: !Ref IngressVPCTgwRT
+
+  IngressVPCAlbTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref IngressVPC
+      TargetType: ip
+      Protocol: HTTP
+      Port: 80
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /
+      HealthCheckPort: traffic-port
+      Matcher:
+        HttpCode: 200
+      Name: IngressVPC-ALB-TG
+      Tags:
+        - Key: Name
+          Value: IngressVPC-ALB-TG
+
+  IngressVPCALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: IngressVPCALB
+      Subnets:
+        - !Ref IngressVPCPublicSubnet1
+        - !Ref IngressVPCPublicSubnet2
+      SecurityGroups:
+        - !Ref IngressVPCAlbSecurityGroup
+      Scheme: internet-facing
+      Type: application
+
+  IngressVPCAlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP from Internet
+      VpcId: !Ref IngressVPC
+      GroupName: IngressVPC-ALB-SG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: IngressVPC-ALB-SG
+
+  IngressVPCAlbListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref IngressVPCALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref IngressVPCAlbTargetGroup
+
+  IngressVPCAlbRegisterTargetsFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: IngressVPCAlbRegisterTargetsFunctionPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
+                  - elasticloadbalancing:RegisterTargets
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+      RoleName: IngressVPCAlbRegisterTargetsFunctionRole
+
+  IngressVPCAlbRegisterTargetsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: IngressVPCAlbRegisterTargetsFunction
+      Tags:
+        - Key: Name
+          Value: IngressVPCAlbRegisterTargetsFunction
+      Handler: index.handler
+      Role: !GetAtt IngressVPCAlbRegisterTargetsFunctionRole.Arn
+      Runtime: python3.12
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+
+          def handler(event, context):
+            ec2 = boto3.client('ec2')
+            elbv2 = boto3.client('elbv2')
+
+            try:
+                print("Received event:", event)
+
+                if event['RequestType'] == 'Delete':
+                    print("Delete request received. Nothing to clean up.")
+                    cfnresponse.send(event, context, cfnresponse.SUCCESS,
+                                     {"Message": "Delete request handled successfully"}, "RegisterTargets")
+                    return
+
+                response = ec2.describe_instances(Filters=[
+                    {'Name': 'tag:AddToALB', 'Values': ['true']},
+                    {'Name': 'instance-state-name', 'Values': ['running']}
+                ])
+
+                print("describe_instances response:", response)
+
+                private_ips = []
+                for reservation in response['Reservations']:
+                    for instance in reservation['Instances']:
+                        ip = instance.get('PrivateIpAddress')
+                        if ip:
+                            private_ips.append(ip)
+
+                if not private_ips:
+                    raise Exception("No valid private IPs found for tagged instances")
+
+                targets = [{'Id': ip, 'Port': 80, 'AvailabilityZone': 'all'} for ip in private_ips]
+                print("Registering targets:", targets)
+
+                elbv2.register_targets(
+                    TargetGroupArn=event['ResourceProperties']['TargetGroupArn'],
+                    Targets=targets
+                )
+
+                cfnresponse.send(event, context, cfnresponse.SUCCESS,
+                                 {"Message": "Successfully registered targets"}, "RegisterTargets")
+            except Exception as e:
+                print(f"Error: {str(e)}")
+                cfnresponse.send(event, context, cfnresponse.FAILED,
+                                 {"Message": str(e)}, "RegisterTargets")
+
+
+  IngressVPCAlbRegisterTargetsCustomResource:
+    Type: AWS::CloudFormation::CustomResource
+    DependsOn:
+      - VPC1EC2InstanceWeb1
+      - VPC1EC2InstanceWeb2
+    Properties:
+      ServiceToken: !GetAtt IngressVPCAlbRegisterTargetsFunction.Arn
+      TargetGroupArn: !GetAtt IngressVPCAlbTargetGroup.TargetGroupArn
+########## IngressVPC Resources End here  #########################################
+#
+#
+#
+#
+########## EgressVPC Resources ###################################################
+  EgressVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref EgressVPCCidr
+      Tags:
+        - Key: Name
+          Value: EgressVPC
+  EgressVPCIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: EgressVPC-IGW
+  EgressVPCIGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref EgressVPC
+      InternetGatewayId: !Ref EgressVPCIGW
+
+  EgressVPCTgwSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref EgressVPC
+      CidrBlock: !Select [0, !Cidr [!Ref EgressVPCCidr, 2, 4]] # 2 subnets of /28 out of that the first one will be used
+      AvailabilityZone: !Ref Az1
+      Tags:
+        - Key: Name
+          Value: EgressVPC-Tgw1
+
+  EgressVPCTgwSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref EgressVPC
+      CidrBlock: !Select [1, !Cidr [!Ref EgressVPCCidr, 2, 4]] # 2 subnets of /28 out of that the second one will be used
+      AvailabilityZone: !Ref Az2
+      Tags:
+        - Key: Name
+          Value: EgressVPC-Tgw2
+
+  EgressVPCPublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref EgressVPC
+      CidrBlock: !Select [4, !Cidr [!Ref EgressVPCCidr, 6, 5]] # 6 subnets of /27 out of that the forth one will be used
+      AvailabilityZone: !Ref Az1
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: EgressVPC-Pub1
+
+  EgressVPCPublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref EgressVPC
+      CidrBlock: !Select [5, !Cidr [!Ref EgressVPCCidr, 6, 5]] # 6 subnets of /27 out of that the fifth one will be used
+      AvailabilityZone: !Ref Az2
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: EgressVPC-Pub2
+
+  EgressVPCTgwRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref EgressVPC
+      Tags:
+        - Key: Name
+          Value: EgressVPC-TgwRT1
+
+  EgressVPCTgwRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref EgressVPC
+      Tags:
+        - Key: Name
+          Value: EgressVPC-TgwRT2
+
+  EgressVPCPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref EgressVPC
+      Tags:
+        - Key: Name
+          Value: EgressVPC-PubRT
+
+  EgressVPCTgwRt1Route1:
+    Type: AWS::EC2::Route
+    DependsOn: EgressVPCTGWAttachment
+    Properties:
+      RouteTableId: !Ref EgressVPCTgwRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref EgressVPCNATGateway1
+
+  EgressVPCTgwRt2Route1:
+    Type: AWS::EC2::Route
+    DependsOn: EgressVPCTGWAttachment
+    Properties:
+      RouteTableId: !Ref EgressVPCTgwRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref EgressVPCNATGateway2
+
+  EgressVPCPubRtRoute1:
+    Type: AWS::EC2::Route
+    DependsOn: EgressVPCTGWAttachment
+    Properties:
+      RouteTableId: !Ref EgressVPCPublicRouteTable
+      DestinationCidrBlock: !Ref IngressVPCCidr
+      GatewayId: !Ref TransitGateway
+
+  EgressVPCPubRtRoute2:
+    Type: AWS::EC2::Route
+    DependsOn: EgressVPCTGWAttachment
+    Properties:
+      RouteTableId: !Ref EgressVPCPublicRouteTable
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+
+  EgressVPCPubRtRoute3:
+    Type: AWS::EC2::Route
+    DependsOn: EgressVPCTGWAttachment
+    Properties:
+      RouteTableId: !Ref EgressVPCPublicRouteTable
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+
+  EgressVPCPubRTDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: EgressVPCIGWAttachment
+    Properties:
+      RouteTableId: !Ref EgressVPCPublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref EgressVPCIGW
+
+  EgressVPCTgw1RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref EgressVPCTgwSubnet1
+      RouteTableId: !Ref EgressVPCTgwRouteTable1
+
+  EgressVPCTgw2RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref EgressVPCTgwSubnet2
+      RouteTableId: !Ref EgressVPCTgwRouteTable2
+
+  EgressVPCPubRTAssoc1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref EgressVPCPublicSubnet1
+      RouteTableId: !Ref EgressVPCPublicRouteTable
+
+  EgressVPCPubRTAssoc2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref EgressVPCPublicSubnet2
+      RouteTableId: !Ref EgressVPCPublicRouteTable
+
+  EgressVPCTGWAttachment:
+    Type: AWS::EC2::TransitGatewayVpcAttachment
+    Properties:
+      TransitGatewayId: !Ref TransitGateway
+      VpcId: !Ref EgressVPC
+      SubnetIds:
+        - !Ref EgressVPCTgwSubnet1
+        - !Ref EgressVPCTgwSubnet2
+      Tags:
+        - Key: Name
+          Value: EgressVPCAttachment
+
+  EgressVPCTGWRouteAssociation:
+    Type: AWS::EC2::TransitGatewayRouteTableAssociation
+    Properties:
+      TransitGatewayAttachmentId: !Ref EgressVPCTGWAttachment
+      TransitGatewayRouteTableId: !Ref EgressVPCTgwRT
+
+  EgressVPCTGWRoutePropagation1:
+    Type: AWS::EC2::TransitGatewayRouteTablePropagation
+    Properties:
+      TransitGatewayAttachmentId: !Ref VPC1TGWAttachment
+      TransitGatewayRouteTableId: !Ref EgressVPCTgwRT
+
+  EgressVPCTGWRoutePropagation2:
+    Type: AWS::EC2::TransitGatewayRouteTablePropagation
+    Properties:
+      TransitGatewayAttachmentId: !Ref VPC2TGWAttachment
+      TransitGatewayRouteTableId: !Ref EgressVPCTgwRT
+
+  EgressVPCNATGatewayEIP1:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: EgressVPCNatGw1EIP
+
+  EgressVPCNATGateway1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt   EgressVPCNATGatewayEIP1.AllocationId
+      SubnetId: !Ref EgressVPCPublicSubnet1
+      Tags:
+        - Key: Name
+          Value: EgressVPCNatGw1
+  
+  EgressVPCNATGatewayEIP2:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: EgressVPCNatGw2EIP
+
+  EgressVPCNATGateway2:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt   EgressVPCNATGatewayEIP2.AllocationId
+      SubnetId: !Ref EgressVPCPublicSubnet2
+      Tags:
+        - Key: Name
+          Value: EgressVPCNatGw2
+         
+########## EgressVPC Resources End here  #########################################
+#
+#
+#
+#
+########## VPC1 Resources ###################################################
+
+  VPC1:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPC1Cidr
+      Tags:
+        - Key: Name
+          Value: VPC1
+
+  VPC1TgwSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC1
+      CidrBlock: !Select [0, !Cidr [!Ref VPC1Cidr, 2, 4]] # 2 subnets of /28 out of that the first one will be used
+      AvailabilityZone: !Ref Az1
+      Tags:
+        - Key: Name
+          Value: VPC1-Tgw1
+
+  VPC1TgwSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC1
+      CidrBlock: !Select [1, !Cidr [!Ref VPC1Cidr, 2, 4]] # 2 subnets of /28 out of that the second one will be used
+      AvailabilityZone: !Ref Az2
+      Tags:
+        - Key: Name
+          Value: VPC1-Tgw2
+
+  VPC1PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC1
+      CidrBlock: !Select [2, !Cidr [!Ref VPC1Cidr, 6, 5]] # 6 subnets of /27 out of that the second one will be used
+      AvailabilityZone: !Ref Az1
+      Tags:
+        - Key: Name
+          Value: VPC1-Priv1
+
+  VPC1PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC1
+      CidrBlock: !Select [3, !Cidr [!Ref VPC1Cidr, 6, 5]] # 6 subnets of /27 out of that the third one will be used
+      AvailabilityZone: !Ref Az2
+      Tags:
+        - Key: Name
+          Value: VPC1-Priv2
+
+  VPC1TgwRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC1
+      Tags:
+        - Key: Name
+          Value: VPC1-TgwRT
+
+  VPC1PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC1
+      Tags:
+        - Key: Name
+          Value: VPC1-PrivRT
+
+  VPC1PrivRtRoute1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1PrivateRouteTable
+      DestinationCidrBlock: !Ref IngressVPCCidr
+      GatewayId: !Ref TransitGateway
+
+  VPC1PrivRtRoute2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1PrivateRouteTable
+      DestinationCidrBlock: !Ref EgressVPCCidr
+      GatewayId: !Ref TransitGateway
+
+  VPC1PrivRtRoute3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1PrivateRouteTable
+      DestinationCidrBlock: !Ref VPC2Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC1PrivRtRoute4:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC1PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref TransitGateway
+
+  VPC1Tgw1RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC1TgwSubnet1
+      RouteTableId: !Ref VPC1TgwRouteTable
+
+  VPC1Tgw2RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC1TgwSubnet2
+      RouteTableId: !Ref VPC1TgwRouteTable
+
+  VPC1Priv1RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC1PrivateSubnet1
+      RouteTableId: !Ref VPC1PrivateRouteTable
+
+  VPC1Priv2RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC1PrivateSubnet2
+      RouteTableId: !Ref VPC1PrivateRouteTable
+
+  VPC1TGWAttachment:
+    Type: AWS::EC2::TransitGatewayVpcAttachment
+    Properties:
+      TransitGatewayId: !Ref TransitGateway
+      VpcId: !Ref VPC1
+      SubnetIds:
+        - !Ref VPC1TgwSubnet1
+        - !Ref VPC1TgwSubnet2
+      Tags:
+        - Key: Name
+          Value: VPC1Attachment
+
+  VPC1TGWRouteAssociation:
+    Type: AWS::EC2::TransitGatewayRouteTableAssociation
+    Properties:
+      TransitGatewayAttachmentId: !Ref VPC1TGWAttachment
+      TransitGatewayRouteTableId: !Ref VPC1TgwRT
+
+  VPC1TGWRoutePropagation1:
+    Type: AWS::EC2::TransitGatewayRouteTablePropagation
+    Properties:
+      TransitGatewayAttachmentId: !Ref IngressVPCTGWAttachment
+      TransitGatewayRouteTableId: !Ref VPC1TgwRT
+
+  VPC1TGWRoutePropagation2:
+    Type: AWS::EC2::TransitGatewayRouteTablePropagation
+    Properties:
+      TransitGatewayAttachmentId: !Ref EgressVPCTGWAttachment
+      TransitGatewayRouteTableId: !Ref VPC1TgwRT
+
+  VPC1TGWRoutePropagation3:
+    Type: AWS::EC2::TransitGatewayRouteTablePropagation
+    Properties:
+      TransitGatewayAttachmentId: !Ref VPC2TGWAttachment
+      TransitGatewayRouteTableId: !Ref VPC1TgwRT
+
+  VPC1TGWRouteStatic1:
+    Type: AWS::EC2::TransitGatewayRoute
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      TransitGatewayAttachmentId: !Ref EgressVPCTGWAttachment
+      TransitGatewayRouteTableId: !Ref VPC1TgwRT
+
+########## VPC1 Resources End here  #########################################
+#
+#
+#
+#
+########## VPC2 Resources ###################################################
+  VPC2:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPC2Cidr
+      Tags:
+        - Key: Name
+          Value: VPC2
+
+  VPC2TgwSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC2
+      CidrBlock: !Select [0, !Cidr [!Ref VPC2Cidr, 2, 4]] # 2 subnets of /28 out of that the first one will be used
+      AvailabilityZone: !Ref Az1
+      Tags:
+        - Key: Name
+          Value: VPC2-Tgw1
+
+  VPC2TgwSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC2
+      CidrBlock: !Select [1, !Cidr [!Ref VPC2Cidr, 2, 4]] # 2 subnets of /28 out of that the second one will be used
+      AvailabilityZone: !Ref Az2
+      Tags:
+        - Key: Name
+          Value: VPC2-Tgw2
+
+  VPC2PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC2
+      CidrBlock: !Select [2, !Cidr [!Ref VPC2Cidr, 6, 5]] # 6 subnets of /27 out of that the second one will be used
+      AvailabilityZone: !Ref Az1
+      Tags:
+        - Key: Name
+          Value: VPC2-Priv1
+
+  VPC2PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC2
+      CidrBlock: !Select [3, !Cidr [!Ref VPC2Cidr, 6, 5]] # 6 subnets of /27 out of that the third one will be used
+      AvailabilityZone: !Ref Az2
+      Tags:
+        - Key: Name
+          Value: VPC2-Priv2
+
+  VPC2TgwRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC2
+      Tags:
+        - Key: Name
+          Value: VPC2-TgwRT
+
+  VPC2PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC2
+      Tags:
+        - Key: Name
+          Value: VPC2-PrivRT
+
+  VPC2PrivRtRoute1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2PrivateRouteTable
+      DestinationCidrBlock: !Ref IngressVPCCidr
+      GatewayId: !Ref TransitGateway
+
+  VPC2PrivRtRoute2:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2PrivateRouteTable
+      DestinationCidrBlock: !Ref EgressVPCCidr
+      GatewayId: !Ref TransitGateway
+
+  VPC2PrivRtRoute3:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2PrivateRouteTable
+      DestinationCidrBlock: !Ref VPC1Cidr
+      GatewayId: !Ref TransitGateway
+
+  VPC2PrivRtRoute4:
+    Type: AWS::EC2::Route
+    DependsOn: VPC2TGWAttachment
+    Properties:
+      RouteTableId: !Ref VPC2PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref TransitGateway
+
+  VPC2Tgw1RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC2TgwSubnet1
+      RouteTableId: !Ref VPC2TgwRouteTable
+
+  VPC2Tgw2RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC2TgwSubnet2
+      RouteTableId: !Ref VPC2TgwRouteTable
+
+  VPC2Priv1RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC2PrivateSubnet1
+      RouteTableId: !Ref VPC2PrivateRouteTable
+
+  VPC2Priv2RTAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC2PrivateSubnet2
+      RouteTableId: !Ref VPC2PrivateRouteTable
+
+  VPC2TGWAttachment:
+    Type: AWS::EC2::TransitGatewayVpcAttachment
+    Properties:
+      TransitGatewayId: !Ref TransitGateway
+      VpcId: !Ref VPC2
+      SubnetIds:
+        - !Ref VPC2TgwSubnet1
+        - !Ref VPC2TgwSubnet2
+      Tags:
+        - Key: Name
+          Value: VPC2Attachment
+
+  VPC2TGWRouteAssociation:
+    Type: AWS::EC2::TransitGatewayRouteTableAssociation
+    Properties:
+      TransitGatewayAttachmentId: !Ref VPC2TGWAttachment
+      TransitGatewayRouteTableId: !Ref VPC2TgwRT
+
+  VPC2TGWRoutePropagation1:
+    Type: AWS::EC2::TransitGatewayRouteTablePropagation
+    Properties:
+      TransitGatewayAttachmentId: !Ref IngressVPCTGWAttachment
+      TransitGatewayRouteTableId: !Ref VPC2TgwRT
+
+  VPC2TGWRoutePropagation2:
+    Type: AWS::EC2::TransitGatewayRouteTablePropagation
+    Properties:
+      TransitGatewayAttachmentId: !Ref EgressVPCTGWAttachment
+      TransitGatewayRouteTableId: !Ref VPC2TgwRT
+
+  VPC2TGWRoutePropagation3:
+    Type: AWS::EC2::TransitGatewayRouteTablePropagation
+    Properties:
+      TransitGatewayAttachmentId: !Ref VPC1TGWAttachment
+      TransitGatewayRouteTableId: !Ref VPC2TgwRT
+      
+  VPC2TGWRouteStatic1:
+    Type: AWS::EC2::TransitGatewayRoute
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      TransitGatewayAttachmentId: !Ref EgressVPCTGWAttachment
+      TransitGatewayRouteTableId: !Ref VPC2TgwRT
+
+          
+########## VPC2 Resources End here  #########################################
+#
+#
+#
+#
+########## TGW Resources ###################################################
+
+  TransitGateway:
+    Type: AWS::EC2::TransitGateway
+    Properties:
+      Description: TGW connecting all VPCs
+      DefaultRouteTableAssociation: disable
+      DefaultRouteTablePropagation: disable
+      Tags:
+        - Key: Name
+          Value: TransitGateway
+
+  IngressVPCTgwRT:
+    Type: AWS::EC2::TransitGatewayRouteTable
+    Properties:
+      TransitGatewayId: !Ref TransitGateway
+      Tags:
+        - Key: Name
+          Value: IngressVPCTgwRT
+
+  EgressVPCTgwRT:
+    Type: AWS::EC2::TransitGatewayRouteTable
+    Properties:
+      TransitGatewayId: !Ref TransitGateway
+      Tags:
+        - Key: Name
+          Value: EgressVPCTgwRT
+  
+  VPC1TgwRT:
+    Type: AWS::EC2::TransitGatewayRouteTable
+    Properties:
+      TransitGatewayId: !Ref TransitGateway
+      Tags:
+        - Key: Name
+          Value: VPC1TgwRT
+
+  VPC2TgwRT:
+    Type: AWS::EC2::TransitGatewayRouteTable
+    Properties:
+      TransitGatewayId: !Ref TransitGateway
+      Tags:
+        - Key: Name
+          Value: VPC2TgwRT
+
+########## TGW Resources End here ##########################################
+#
+#
+#
+#
+########## Flow logs  ##################################################
+
+  FlowLogIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: vpc-flow-logs.amazonaws.com
+            Action: sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: VPC-TGW-FlowLogPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogGroups
+                Resource: "*"
+  TGWFlowLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "TGW-Flowlog"
+      RetentionInDays: 30
+
+  IngressVPCFlowLogLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "IngressVPC-Flowlog"
+      RetentionInDays: 30
+
+  EgressVPCFlowLogLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "EgressVPC-Flowlog"
+      RetentionInDays: 30
+
+  VPC1FlowLogLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "VPC1-Flowlog"
+      RetentionInDays: 30
+
+  VPC2FlowLogLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "VPC2-Flowlog"
+      RetentionInDays: 30
+
+  TGWFlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      ResourceType: TransitGateway
+      ResourceId: !Ref TransitGateway
+      LogDestinationType: cloud-watch-logs
+      LogGroupName: !Ref TGWFlowLogGroup
+      DeliverLogsPermissionArn: !GetAtt  FlowLogIAMRole.Arn
+      Tags:
+        - Key: Name
+          Value: TGW-Flowlog
+
+  IngressVPCFlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt FlowLogIAMRole.Arn
+      LogGroupName: !Ref IngressVPCFlowLogLogGroup
+      ResourceId: !Ref IngressVPC
+      ResourceType: VPC
+      TrafficType: ALL
+      Tags:
+        - Key: Name
+          Value: IngressVPC-Flowlog
+
+  EgressVPCFlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt FlowLogIAMRole.Arn
+      LogGroupName: !Ref EgressVPCFlowLogLogGroup
+      ResourceId: !Ref EgressVPC
+      ResourceType: VPC
+      TrafficType: ALL
+      Tags:
+        - Key: Name
+          Value: EgressVPC-Flowlog
+
+  VPC1FlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt FlowLogIAMRole.Arn
+      LogGroupName: !Ref VPC1FlowLogLogGroup
+      ResourceId: !Ref VPC1
+      ResourceType: VPC
+      TrafficType: ALL
+      Tags:
+        - Key: Name
+          Value: VPC1-Flowlog
+
+  VPC2FlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt FlowLogIAMRole.Arn
+      LogGroupName: !Ref IngressVPCFlowLogLogGroup
+      ResourceId: !Ref VPC2
+      ResourceType: VPC
+      TrafficType: ALL
+      Tags:
+        - Key: Name
+          Value: VPC2-Flowlog
+########## Flow logs End here ##########################################
+#
+#
+#
+#
+########## EC2 Resources ###################################################
+  VPCKeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: IngressVPC-KeyPair
+      KeyType: rsa
+      Tags:
+        - Key: Name
+          Value: VPC-KeyPair
+
+  IngressVPCSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH from Internet
+      VpcId: !Ref IngressVPC
+      GroupName: IngressVPC-SG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: IngressVPC-SG
+
+  EC2SSMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-SSMRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Path: /
+
+  EC2SSMInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: "EC2-SSMInstanceProfile"
+      Roles:
+        - !Ref EC2SSMRole
+
+  IngressVPCEC2InstanceBastionHost:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref InstanceImageId
+      InstanceType: t3.micro
+      SubnetId: !Ref IngressVPCPublicSubnet1
+      KeyName: !Ref VPCKeyPair
+      IamInstanceProfile: !Ref EC2SSMInstanceProfile
+      SecurityGroupIds:
+        - !Ref IngressVPCSecurityGroup
+      Tags:
+        - Key: Name
+          Value: IngressVPC-Instance-BastionHost
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 10
+            VolumeType: gp3
+
+  VPC1WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH from Internet
+      VpcId: !Ref VPC1
+      GroupName: VPC1-Web-SG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref VPC1Cidr
+      Tags:
+        - Key: Name
+          Value: VPC1-Web-SG
+
+  VPC1EC2InstanceWeb1:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref InstanceImageId
+      InstanceType: t3.micro
+      SubnetId: !Ref VPC1PrivateSubnet1
+      KeyName: !Ref VPCKeyPair
+      IamInstanceProfile: !Ref EC2SSMInstanceProfile
+      SecurityGroupIds:
+        - !Ref VPC1WebSecurityGroup
+      Tags:
+        - Key: Name
+          Value: VPC1-Web1
+        - Key: AddToALB
+          Value: true
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 10
+            VolumeType: gp3
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y httpd
+          systemctl enable httpd
+          systemctl start httpd
+          echo "<h1>VPC1 Web Server 1 - Apache is running</h1>" > /var/www/html/index.html
+
+  VPC1EC2InstanceWeb2:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref InstanceImageId
+      InstanceType: t3.micro
+      SubnetId: !Ref VPC1PrivateSubnet2
+      KeyName: !Ref VPCKeyPair
+      IamInstanceProfile: !Ref EC2SSMInstanceProfile
+      SecurityGroupIds:
+        - !Ref VPC1WebSecurityGroup
+      Tags:
+        - Key: Name
+          Value: VPC1-Web2
+        - Key: AddToALB
+          Value: true
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 10
+            VolumeType: gp3
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y httpd
+          systemctl enable httpd
+          systemctl start httpd
+          echo "<h1>VPC1 Web Server 2 - Apache is running</h1>" > /var/www/html/index.html
+########## EC2 Resources ###################################################
+
+
+
+Outputs:
+  ArchitectureDiagram:
+    Description: "Link to architectural diagram"
+    Value: "https://github.com/rajeshraveendra/AWS_Solutions/wiki/Ingress%E2%80%90Egress-Multi%E2%80%90VPC-Setup-with-TransitGateway"
+    
+  IngressVPCALBDNSName:
+    Description: DNS name of the ALB
+    Value: !GetAtt IngressVPCALB.DNSName

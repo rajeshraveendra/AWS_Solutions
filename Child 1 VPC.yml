@@ -1,0 +1,290 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  [Creates VPC with public and private subnets. A bastion host will be deployed in one of the public subnets.]
+  [Documentation: Refer the output section for documentation.]
+  [Author: Rajesh Raveendran]
+  [Version: 1.0.0]
+  [Date: 24-09-2025]
+
+Parameters:
+  VPC1Cidr:
+    Type: String
+    Description: CIDR block for VPC 1
+    Default: 10.10.0.0/24
+  Az1:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: First Availability Zone
+  Az2:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Second Availability Zone
+  InstanceImageId:
+    Type: AWS::EC2::Image::Id
+    Description: AMI ID for EC2 instance
+    Default: ami-0059ed5a3aacdfe15
+
+Resources:
+########## VPC1 Resources ###################################################
+
+  VPC1:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPC1Cidr
+      Tags:
+        - Key: Name
+          Value: VPC1
+  VPC1IGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: VPC1-IGW
+  VPC1IGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC1
+      InternetGatewayId: !Ref VPC1IGW
+
+  VPC1PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC1
+      CidrBlock: !Select [0, !Cidr [!Ref VPC1Cidr, 4, 4]] # 4 subnets of /28 out of that the first one will be used
+      AvailabilityZone: !Ref Az1
+      Tags:
+        - Key: Name
+          Value: VPC1-Priv1
+
+  VPC1PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC1
+      CidrBlock: !Select [1, !Cidr [!Ref VPC1Cidr, 4, 4]] # 4 subnets of /28 out of that the second one will be used
+      AvailabilityZone: !Ref Az2
+      Tags:
+        - Key: Name
+          Value: VPC1-Priv2
+
+  VPC1PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC1
+      CidrBlock: !Select [2, !Cidr [!Ref VPC1Cidr, 4, 4]] # 4 subnets of /28 out of that the third one will be used
+      AvailabilityZone: !Ref Az1
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: VPC1-Pub1
+
+  VPC1PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC1
+      CidrBlock: !Select [3, !Cidr [!Ref VPC1Cidr, 4, 4]] # 4 subnets of /28 out of that the forth one will be used
+      AvailabilityZone: !Ref Az2
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: VPC1-Pub2
+
+  VPC1PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC1
+      Tags:
+        - Key: Name
+          Value: VPC1-PrivRT
+
+  VPC1PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC1
+      Tags:
+        - Key: Name
+          Value: VPC1-PubRT
+
+  VPC1PrivRtRoute1:
+    Type: AWS::EC2::Route
+    DependsOn: VPC1NatGateway
+    Properties:
+      RouteTableId: !Ref VPC1PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref VPC1NatGateway
+ 
+  VPC1PubRTDefaultRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref VPC1PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref VPC1IGW
+
+  VPC1PrivRTAssoc1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC1PrivateSubnet1
+      RouteTableId: !Ref VPC1PrivateRouteTable
+
+  VPC1PrivRTAssoc2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC1PrivateSubnet2
+      RouteTableId: !Ref VPC1PrivateRouteTable
+
+  VPC1PubRTAssoc1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC1PublicSubnet1
+      RouteTableId: !Ref VPC1PublicRouteTable
+
+  VPC1PubRTAssoc2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VPC1PublicSubnet2
+      RouteTableId: !Ref VPC1PublicRouteTable
+
+  VPC1NatEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  VPC1NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt VPC1NatEIP.AllocationId
+      SubnetId: !Ref VPC1PublicSubnet1     
+      ConnectivityType: public           
+      Tags:
+        - Key: Name
+          Value: VPC1-NatGW
+
+########## VPC1 Resources End here  #########################################
+#
+#
+#
+#
+########## Flow logs  ##################################################
+
+  FlowLogIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: vpc-flow-logs.amazonaws.com
+            Action: sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: VPC-TGW-FlowLogPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogGroups
+                Resource: "*"
+
+  VPC1FlowLogLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "VPC1-Flowlog"
+      RetentionInDays: 30
+
+  VPC1FlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt FlowLogIAMRole.Arn
+      LogGroupName: !Ref VPC1FlowLogLogGroup
+      ResourceId: !Ref VPC1
+      ResourceType: VPC
+      TrafficType: ALL
+      Tags:
+        - Key: Name
+          Value: VPC1-Flowlog
+
+########## Flow logs End here ##########################################
+#
+#
+#
+#
+########## EC2 Common Resources ###################################################
+  VPCKeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: VPC1-KeyPair
+      KeyType: rsa
+      Tags:
+        - Key: Name
+          Value: VPC-KeyPair
+
+  VPC1SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH from Internet
+      VpcId: !Ref VPC1
+      GroupName: VPC1-SG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3389
+          ToPort: 3389
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: VPC1-SG
+
+  EC2SSMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-SSMRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Path: /
+
+  EC2SSMInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: "EC2-SSMInstanceProfile"
+      Roles:
+        - !Ref EC2SSMRole
+########## EC2 Common Resources Ends Here #########################################
+#
+#
+#
+#
+########## EC2 Bastion Host ######################################################
+  VPC1EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref InstanceImageId
+      InstanceType: t3.large
+      SubnetId: !Ref VPC1PublicSubnet1
+      KeyName: !Ref VPCKeyPair
+      IamInstanceProfile: !Ref EC2SSMInstanceProfile
+      SecurityGroupIds:
+        - !Ref VPC1SecurityGroup
+      Tags:
+        - Key: Name
+          Value: VPC1-Instance-BastionHost
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp3
+########## EC2 Bastion Host Ends Here ############################################
+
+
+
+Outputs:
+  ArchitectureDiagram:
+    Description: "Link to architectural diagram"
+    Value: "https://github.com/rajeshraveendra/AWS_Solutions/wiki/Simple-Multi%E2%80%90VPC-Setup-with-TransitGateway"
+

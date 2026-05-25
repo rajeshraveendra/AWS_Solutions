@@ -1,208 +1,225 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <title>AWS Solutions</title>
 
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
 
     <style>
 
-        *{
-            margin:0;
-            padding:0;
-            box-sizing:border-box;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        body{
-            font-family:'Poppins',sans-serif;
-            background: linear-gradient(135deg,#0f172a,#1e293b,#111827);
-            min-height:100vh;
-            color:#ffffff;
-            padding:40px;
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b, #111827);
+            min-height: 100vh;
+            color: #ffffff;
+            padding: 35px;
         }
 
-        .layout{
-            display:flex;
-            gap:30px;
-            align-items:flex-start;
+        .layout {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
         }
 
-        /* Main Content */
+        /* =========================
+           LEFT CONTENT
+        ========================== */
 
-        .main-content{
-            flex:1;
-            background:rgba(255,255,255,0.08);
-            backdrop-filter:blur(10px);
-            border:1px solid rgba(255,255,255,0.1);
-            border-radius:24px;
-            padding:40px;
-            box-shadow:0 10px 30px rgba(0,0,0,0.35);
+        .main-content {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
         }
 
-        h1{
-            font-size:52px;
-            font-weight:700;
-            margin-bottom:35px;
-            background: linear-gradient(to right,#38bdf8,#818cf8);
-            -webkit-background-clip:text;
-            -webkit-text-fill-color:transparent;
+        h1 {
+            font-size: 54px;
+            font-weight: 700;
+            margin-bottom: 35px;
+            background: linear-gradient(to right, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        .solution-list{
-            list-style:none;
+        .solution-list {
+            list-style: none;
         }
 
-        .solution-list li{
-            margin-bottom:22px;
+        .solution-list li {
+            margin-bottom: 22px;
         }
 
-        .solution-list a{
-            display:block;
-            text-decoration:none;
-            color:#ffffff;
-            background:rgba(255,255,255,0.05);
-            padding:20px 24px;
-            border-radius:18px;
-            font-size:24px;
-            font-weight:500;
-            transition:0.3s ease;
-            border:1px solid rgba(255,255,255,0.08);
+        .solution-list a {
+            display: block;
+            text-decoration: none;
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 22px 24px;
+            border-radius: 18px;
+            font-size: 22px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
-        .solution-list a:hover{
-            transform:translateY(-3px);
-            background:linear-gradient(135deg,#2563eb,#7c3aed);
-            box-shadow:0 10px 20px rgba(0,0,0,0.3);
+        .solution-list a:hover {
+            transform: translateY(-4px);
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
         }
 
-        /* Footer */
+        /* =========================
+           FOOTER
+        ========================== */
 
-        .footer{
-            margin-top:50px;
-            border:2px dashed rgba(255,255,255,0.2);
-            border-radius:20px;
-            padding:28px;
-            text-align:center;
-            color:#cbd5e1;
-            font-size:22px;
-            background:rgba(255,255,255,0.03);
+        .footer {
+            margin-top: 50px;
+            border: 2px dashed rgba(255, 255, 255, 0.15);
+            border-radius: 18px;
+            padding: 28px;
+            text-align: center;
+            color: #cbd5e1;
+            font-size: 22px;
+            background: rgba(255, 255, 255, 0.03);
         }
 
-        /* Sidebar */
+        /* =========================
+           RIGHT SIDEBAR
+        ========================== */
 
-        .sidebar{
-            width:360px;
-            background:rgba(255,255,255,0.08);
-            backdrop-filter:blur(10px);
-            border-radius:24px;
-            padding:25px;
-            border:1px solid rgba(255,255,255,0.1);
-            box-shadow:0 10px 30px rgba(0,0,0,0.35);
-            position:sticky;
-            top:30px;
+        .sidebar {
+            width: 380px;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(14px);
+            border-radius: 24px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+
+            /* IMPORTANT FIX */
+            display: block;
+            visibility: visible;
+            opacity: 1;
         }
 
-        .sidebar-header{
-            display:flex;
-            justify-content:space-between;
-            align-items:center;
-            margin-bottom:25px;
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
         }
 
-        .sidebar-header h2{
-            font-size:28px;
-            font-weight:600;
+        .sidebar-header h2 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #ffffff;
         }
 
-        .badge{
-            background:#3b82f6;
-            color:white;
-            padding:4px 12px;
-            border-radius:50px;
-            font-size:16px;
+        .badge {
+            background: linear-gradient(135deg, #3b82f6, #6366f1);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 50px;
+            font-size: 15px;
+            font-weight: 600;
         }
 
-        .search-box{
-            width:100%;
-            padding:14px 18px;
-            border:none;
-            border-radius:14px;
-            background:rgba(255,255,255,0.08);
-            color:white;
-            margin-bottom:25px;
-            font-size:16px;
-            outline:none;
+        .search-box {
+            width: 100%;
+            padding: 15px 18px;
+            border: none;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.08);
+            color: white;
+            margin-bottom: 28px;
+            font-size: 15px;
+            outline: none;
         }
 
-        .search-box::placeholder{
-            color:#cbd5e1;
+        .search-box::placeholder {
+            color: #cbd5e1;
         }
 
-        .sidebar ul{
-            list-style:none;
+        .page-list {
+            list-style: none;
         }
 
-        .sidebar li{
-            margin-bottom:14px;
+        .page-list li {
+            margin-bottom: 12px;
         }
 
-        .sidebar a{
-            text-decoration:none;
-            color:#e2e8f0;
-            font-size:18px;
-            display:block;
-            padding:14px 16px;
-            border-radius:14px;
-            transition:0.3s;
+        .page-list a {
+            text-decoration: none;
+            color: #e2e8f0;
+            font-size: 17px;
+            display: block;
+            padding: 14px 16px;
+            border-radius: 14px;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.03);
         }
 
-        .sidebar a:hover{
-            background:rgba(255,255,255,0.08);
-            color:#38bdf8;
+        .page-list a:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #38bdf8;
+            transform: translateX(3px);
         }
 
-        .home{
-            color:#38bdf8 !important;
-            font-weight:600;
+        .active-page {
+            background: linear-gradient(135deg, #2563eb, #7c3aed) !important;
+            color: #ffffff !important;
+            font-weight: 600;
         }
 
-        /* Responsive */
+        /* =========================
+           RESPONSIVE
+        ========================== */
 
-        @media(max-width:1100px){
+        @media(max-width:1100px) {
 
-            .layout{
-                flex-direction:column;
+            .layout {
+                flex-direction: column;
             }
 
-            .sidebar{
-                width:100%;
-                position:relative;
-                top:0;
+            .sidebar {
+                width: 100%;
             }
 
         }
 
-        @media(max-width:768px){
+        @media(max-width:768px) {
 
-            body{
-                padding:20px;
+            body {
+                padding: 20px;
             }
 
-            h1{
-                font-size:36px;
+            h1 {
+                font-size: 38px;
             }
 
-            .solution-list a{
-                font-size:18px;
-                padding:16px;
+            .solution-list a {
+                font-size: 18px;
+                padding: 18px;
             }
 
-            .sidebar a{
-                font-size:16px;
+            .sidebar {
+                width: 100%;
             }
 
         }
@@ -215,7 +232,9 @@
 
     <div class="layout">
 
-        <!-- Main Content -->
+        <!-- =========================
+             MAIN CONTENT
+        ========================== -->
 
         <div class="main-content">
 
@@ -224,37 +243,43 @@
             <ul class="solution-list">
 
                 <li>
-                    <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/Simple-VPC" target="_blank">
+                    <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/Simple-VPC"
+                        target="_blank">
                         Simple VPC
                     </a>
                 </li>
 
                 <li>
-                    <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/Hybrid-DNS-Setup-in-AWS" target="_blank">
+                    <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/Hybrid-DNS-Setup-in-AWS"
+                        target="_blank">
                         Hybrid DNS Setup in AWS
                     </a>
                 </li>
 
                 <li>
-                    <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/Simple-Multi%E2%80%90VPC-Setup-with-TransitGateway" target="_blank">
+                    <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/Simple-Multi%E2%80%90VPC-Setup-with-TransitGateway"
+                        target="_blank">
                         Simple Multi‐VPC Setup with TransitGateway
                     </a>
                 </li>
 
                 <li>
-                    <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/Ingress%E2%80%90Egress-Multi%E2%80%90VPC-Setup-with-TransitGateway" target="_blank">
+                    <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/Ingress%E2%80%90Egress-Multi%E2%80%90VPC-Setup-with-TransitGateway"
+                        target="_blank">
                         Ingress‐Egress Multi‐VPC Setup with TransitGateway
                     </a>
                 </li>
 
                 <li>
-                    <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/Inspection-VPC-in-Centralized-Multi%E2%80%90VPC-Architecture" target="_blank">
+                    <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/Inspection-VPC-in-Centralized-Multi%E2%80%90VPC-Architecture"
+                        target="_blank">
                         Inspection VPC in Centralized Multi‐VPC Architecture
                     </a>
                 </li>
 
                 <li>
-                    <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/RDS-with-Secret-Manager-Autorotation" target="_blank">
+                    <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/RDS-with-Secret-Manager-Autorotation"
+                        target="_blank">
                         RDS with Secret Manager Auto-rotation
                     </a>
                 </li>
@@ -267,7 +292,9 @@
 
         </div>
 
-        <!-- Sidebar -->
+        <!-- =========================
+             RIGHT SIDEBAR
+        ========================== -->
 
         <div class="sidebar">
 
@@ -276,44 +303,64 @@
                 <span class="badge">8</span>
             </div>
 
-            <input type="text" class="search-box" placeholder="Find a page or section..." />
+            <input type="text"
+                class="search-box"
+                placeholder="Find a page or section..." />
 
-            <ul>
+            <ul class="page-list">
 
                 <li>
-                    <a class="home" href="#">Home</a>
+                    <a class="active-page" href="#">
+                        Home
+                    </a>
                 </li>
 
                 <li>
-                    <a href="#">AWS Solutions</a>
+                    <a href="#">
+                        AWS Solutions
+                    </a>
                 </li>
 
                 <li>
-                    <a href="#">Auto Scaling Group (ASG) with image from latest Backup</a>
+                    <a href="#">
+                        Auto Scaling Group (ASG) with image from latest Backup
+                    </a>
                 </li>
 
                 <li>
-                    <a href="#">Hybrid DNS Setup in AWS</a>
+                    <a href="#">
+                        Hybrid DNS Setup in AWS
+                    </a>
                 </li>
 
                 <li>
-                    <a href="#">Ingress‐Egress Multi‐VPC Setup with TransitGateway</a>
+                    <a href="#">
+                        Ingress‐Egress Multi‐VPC Setup with TransitGateway
+                    </a>
                 </li>
 
                 <li>
-                    <a href="#">Inspection VPC in Centralized Multi‐VPC Architecture</a>
+                    <a href="#">
+                        Inspection VPC in Centralized Multi‐VPC Architecture
+                    </a>
                 </li>
 
                 <li>
-                    <a href="#">RDS with Secret Manager Autorotation</a>
+                    <a href="#">
+                        RDS with Secret Manager Autorotation
+                    </a>
                 </li>
 
                 <li>
-                    <a href="#">Simple Multi‐VPC Setup with TransitGateway</a>
+                    <a href="#">
+                        Simple Multi‐VPC Setup with TransitGateway
+                    </a>
                 </li>
 
                 <li>
-                    <a href="#">Simple VPC</a>
+                    <a href="#">
+                        Simple VPC
+                    </a>
                 </li>
 
             </ul>
@@ -323,4 +370,5 @@
     </div>
 
 </body>
+
 </html>

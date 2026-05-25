@@ -3,120 +3,322 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
     <title>AWS Solutions</title>
 
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
     <style>
-        body {
-            font-family: Arial, Helvetica, sans-serif;
-            background-color: #f5f5f5;
-            margin: 0;
-            padding: 40px;
-            color: #1b1f23;
+
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
         }
 
-        .container {
-            max-width: 1200px;
-            margin: auto;
-            background: #ffffff;
-            padding: 30px 40px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        body{
+            font-family:'Poppins',sans-serif;
+            background: linear-gradient(135deg,#0f172a,#1e293b,#111827);
+            min-height:100vh;
+            color:#ffffff;
+            padding:40px;
         }
 
-        h1 {
-            font-size: 52px;
-            margin-bottom: 30px;
-            color: #232f3e;
+        .layout{
+            display:flex;
+            gap:30px;
+            align-items:flex-start;
         }
 
-        ul {
-            padding-left: 30px;
+        /* Main Content */
+
+        .main-content{
+            flex:1;
+            background:rgba(255,255,255,0.08);
+            backdrop-filter:blur(10px);
+            border:1px solid rgba(255,255,255,0.1);
+            border-radius:24px;
+            padding:40px;
+            box-shadow:0 10px 30px rgba(0,0,0,0.35);
         }
 
-        li {
-            margin-bottom: 18px;
-            font-size: 30px;
-            line-height: 1.4;
+        h1{
+            font-size:52px;
+            font-weight:700;
+            margin-bottom:35px;
+            background: linear-gradient(to right,#38bdf8,#818cf8);
+            -webkit-background-clip:text;
+            -webkit-text-fill-color:transparent;
         }
 
-        a {
-            color: #0969da;
-            text-decoration: underline;
+        .solution-list{
+            list-style:none;
         }
 
-        a:hover {
-            color: #0550ae;
+        .solution-list li{
+            margin-bottom:22px;
         }
 
-        .footer {
-            margin-top: 60px;
-            padding: 25px;
-            border: 2px dashed #d0d7de;
-            border-radius: 12px;
-            text-align: center;
-            color: #57606a;
-            font-size: 22px;
+        .solution-list a{
+            display:block;
+            text-decoration:none;
+            color:#ffffff;
+            background:rgba(255,255,255,0.05);
+            padding:20px 24px;
+            border-radius:18px;
+            font-size:24px;
+            font-weight:500;
+            transition:0.3s ease;
+            border:1px solid rgba(255,255,255,0.08);
         }
 
-        @media (max-width: 768px) {
-            body {
-                padding: 20px;
+        .solution-list a:hover{
+            transform:translateY(-3px);
+            background:linear-gradient(135deg,#2563eb,#7c3aed);
+            box-shadow:0 10px 20px rgba(0,0,0,0.3);
+        }
+
+        /* Footer */
+
+        .footer{
+            margin-top:50px;
+            border:2px dashed rgba(255,255,255,0.2);
+            border-radius:20px;
+            padding:28px;
+            text-align:center;
+            color:#cbd5e1;
+            font-size:22px;
+            background:rgba(255,255,255,0.03);
+        }
+
+        /* Sidebar */
+
+        .sidebar{
+            width:360px;
+            background:rgba(255,255,255,0.08);
+            backdrop-filter:blur(10px);
+            border-radius:24px;
+            padding:25px;
+            border:1px solid rgba(255,255,255,0.1);
+            box-shadow:0 10px 30px rgba(0,0,0,0.35);
+            position:sticky;
+            top:30px;
+        }
+
+        .sidebar-header{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            margin-bottom:25px;
+        }
+
+        .sidebar-header h2{
+            font-size:28px;
+            font-weight:600;
+        }
+
+        .badge{
+            background:#3b82f6;
+            color:white;
+            padding:4px 12px;
+            border-radius:50px;
+            font-size:16px;
+        }
+
+        .search-box{
+            width:100%;
+            padding:14px 18px;
+            border:none;
+            border-radius:14px;
+            background:rgba(255,255,255,0.08);
+            color:white;
+            margin-bottom:25px;
+            font-size:16px;
+            outline:none;
+        }
+
+        .search-box::placeholder{
+            color:#cbd5e1;
+        }
+
+        .sidebar ul{
+            list-style:none;
+        }
+
+        .sidebar li{
+            margin-bottom:14px;
+        }
+
+        .sidebar a{
+            text-decoration:none;
+            color:#e2e8f0;
+            font-size:18px;
+            display:block;
+            padding:14px 16px;
+            border-radius:14px;
+            transition:0.3s;
+        }
+
+        .sidebar a:hover{
+            background:rgba(255,255,255,0.08);
+            color:#38bdf8;
+        }
+
+        .home{
+            color:#38bdf8 !important;
+            font-weight:600;
+        }
+
+        /* Responsive */
+
+        @media(max-width:1100px){
+
+            .layout{
+                flex-direction:column;
             }
 
-            h1 {
-                font-size: 36px;
+            .sidebar{
+                width:100%;
+                position:relative;
+                top:0;
             }
 
-            li {
-                font-size: 22px;
-            }
         }
+
+        @media(max-width:768px){
+
+            body{
+                padding:20px;
+            }
+
+            h1{
+                font-size:36px;
+            }
+
+            .solution-list a{
+                font-size:18px;
+                padding:16px;
+            }
+
+            .sidebar a{
+                font-size:16px;
+            }
+
+        }
+
     </style>
+
 </head>
 
 <body>
 
-    <div class="container">
+    <div class="layout">
 
-        <h1>AWS Solutions</h1>
+        <!-- Main Content -->
 
-        <ul>
-            <li>
-                <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/Simple-VPC" target="_blank">
-                    Simple VPC
-                </a>
-            </li>
+        <div class="main-content">
 
-            <li>
-                <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/Hybrid-DNS-Setup-in-AWS" target="_blank">
-                    Hybrid DNS Setup in AWS
-                </a>
-            </li>
+            <h1>AWS Solutions</h1>
 
-            <li>
-                <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/Simple-Multi%E2%80%90VPC-Setup-with-TransitGateway" target="_blank">
-                    Simple Multi-VPC Setup with TransitGateway
-                </a>
-            </li>
+            <ul class="solution-list">
 
-            <li>
-                <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/Ingress%E2%80%90Egress-Multi%E2%80%90VPC-Setup-with-TransitGateway" target="_blank">
-                    Ingress-Egress Multi-VPC Setup with TransitGateway
-                </a>
-            </li>
+                <li>
+                    <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/Simple-VPC" target="_blank">
+                        Simple VPC
+                    </a>
+                </li>
 
-            <li>
-                <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/Inspection-VPC-in-Centralized-Multi%E2%80%90VPC-Architecture" target="_blank">
-                    Inspection VPC in Centralized Multi-VPC Architecture
-                </a>
-            </li>
+                <li>
+                    <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/Hybrid-DNS-Setup-in-AWS" target="_blank">
+                        Hybrid DNS Setup in AWS
+                    </a>
+                </li>
 
-            <li>
-                <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/RDS-with-Secret-Manager-Autorotation" target="_blank">
-                    RDS with Secret Manager Auto-rotation
-                </a>
-            </li>
-        </ul>
+                <li>
+                    <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/Simple-Multi%E2%80%90VPC-Setup-with-TransitGateway" target="_blank">
+                        Simple Multi‐VPC Setup with TransitGateway
+                    </a>
+                </li>
+
+                <li>
+                    <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/Ingress%E2%80%90Egress-Multi%E2%80%90VPC-Setup-with-TransitGateway" target="_blank">
+                        Ingress‐Egress Multi‐VPC Setup with TransitGateway
+                    </a>
+                </li>
+
+                <li>
+                    <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/Inspection-VPC-in-Centralized-Multi%E2%80%90VPC-Architecture" target="_blank">
+                        Inspection VPC in Centralized Multi‐VPC Architecture
+                    </a>
+                </li>
+
+                <li>
+                    <a href="https://github.com/rajeshraveendra/AWS_Solutions/wiki/RDS-with-Secret-Manager-Autorotation" target="_blank">
+                        RDS with Secret Manager Auto-rotation
+                    </a>
+                </li>
+
+            </ul>
+
+            <div class="footer">
+                + Add a custom footer
+            </div>
+
+        </div>
+
+        <!-- Sidebar -->
+
+        <div class="sidebar">
+
+            <div class="sidebar-header">
+                <h2>Pages</h2>
+                <span class="badge">8</span>
+            </div>
+
+            <input type="text" class="search-box" placeholder="Find a page or section..." />
+
+            <ul>
+
+                <li>
+                    <a class="home" href="#">Home</a>
+                </li>
+
+                <li>
+                    <a href="#">AWS Solutions</a>
+                </li>
+
+                <li>
+                    <a href="#">Auto Scaling Group (ASG) with image from latest Backup</a>
+                </li>
+
+                <li>
+                    <a href="#">Hybrid DNS Setup in AWS</a>
+                </li>
+
+                <li>
+                    <a href="#">Ingress‐Egress Multi‐VPC Setup with TransitGateway</a>
+                </li>
+
+                <li>
+                    <a href="#">Inspection VPC in Centralized Multi‐VPC Architecture</a>
+                </li>
+
+                <li>
+                    <a href="#">RDS with Secret Manager Autorotation</a>
+                </li>
+
+                <li>
+                    <a href="#">Simple Multi‐VPC Setup with TransitGateway</a>
+                </li>
+
+                <li>
+                    <a href="#">Simple VPC</a>
+                </li>
+
+            </ul>
+
+        </div>
 
     </div>
 
